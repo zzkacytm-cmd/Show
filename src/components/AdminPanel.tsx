@@ -42,12 +42,22 @@ export default function AdminPanel() {
     };
   }, [isAdmin]);
 
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   const login = async () => {
+    setLoginError(null);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed", error);
+      let msg = error.message;
+      if (error.code === 'auth/unauthorized-domain') {
+        msg = "DOMAIN UNAUTHORIZED: Please add this domain to Firebase Console (Auth > Settings > Authorized Domains).";
+      } else if (error.code === 'auth/popup-blocked') {
+        msg = "POPUP BLOCKED: Please allow popups for this site to sign in.";
+      }
+      setLoginError(msg);
     }
   };
 
@@ -72,6 +82,11 @@ export default function AdminPanel() {
             <LogIn size={40} />
           </div>
           <h1 className="text-4xl font-display mb-8 uppercase italic tracking-tighter">Admin Access</h1>
+          {loginError && (
+            <div className="mb-6 p-4 bg-red-100 border-4 border-red-500 text-red-600 font-black text-xs uppercase animate-pulse rounded-xl">
+              ERROR: {loginError}
+            </div>
+          )}
           <button 
             onClick={login}
             className="w-full flex items-center justify-center gap-4 py-5 bg-[#4285F4] text-white font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all mb-8 group"
