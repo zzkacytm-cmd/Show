@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../config/firebase";
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from "firebase/auth";
+import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, setPersistence, browserLocalPersistence, signInWithRedirect } from "firebase/auth";
 import { collection, doc, setDoc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { Profile, PortfolioItem, Skill, Certificate, Experience, OperationType } from "../types";
 import { handleFirestoreError } from "../utils/error-handler";
@@ -45,24 +45,32 @@ export default function AdminPanel() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const login = async () => {
+  const login = async (useRedirect = false) => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
     setLoginError(null);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await setPersistence(auth, browserLocalPersistence);
+      if (useRedirect) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        await signInWithPopup(auth, provider);
+      }
     } catch (error: any) {
-      console.error("Login failed", error);
+      console.error("Detailed Login Error:", error);
       let msg = error.message;
       if (error.code === 'auth/unauthorized-domain') {
-        msg = "域名未授权：请将当前域名（如 xxx.netlify.app）添加到 Firebase 控制台的 'Authorized Domains' 列表中 (Authentication > Settings)。";
+        msg = "域名未授权：请在 Firebase 控制台 (Authentication > Settings > Authorized Domains) 中添加当前 Netlify 域名。";
       } else if (error.code === 'auth/popup-blocked') {
         msg = "弹出窗口被拦截：请允许浏览器弹出窗口以完成登录。";
       } else if (error.code === 'auth/cancelled-popup-request') {
         msg = "请求被取消：请勿在窗口打开时重复点击或关闭弹窗。";
+      } else if (error.code === 'auth/internal-error') {
+        msg = "Firebase 内部错误：可能是由于浏览器禁用了第三方 Cookie 或广告拦截插件。请尝试更换浏览器（推荐 Chrome/Edge）或启用 Redirect 模式登录。";
+        console.error("SERVER ERROR INFO:", error.customData?.serverResponse);
       }
-      setLoginError(msg);
+      setLoginError(`${msg} (Code: ${error.code})`);
     } finally {
       setIsLoggingIn(false);
     }
@@ -96,17 +104,38 @@ export default function AdminPanel() {
             </div>
           )}
           <button 
-            onClick={login}
+            onClick={() => login(false)}
             disabled={isLoggingIn}
-            className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all mb-8 group ${
+            className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all group ${
               isLoggingIn ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-[#4285F4] text-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
             }`}
           >
             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-transparent group-hover:border-bento-dark transition-all">
                {isLoggingIn ? <RefreshCcw className="animate-spin text-bento-dark" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />}
             </div>
-            {isLoggingIn ? "CONNECTING..." : "LOGIN WITH GOOGLE"}
+            {isLoggingIn ? "CONNECTING..." : "LOGIN WITH POPUP"}
           </button>
+
+          <button 
+            onClick={() => login(true)}
+            disabled={isLoggingIn}
+            className={`w-full flex items-center justify-center gap-4 py-4 mt-4 font-display font-black text-lg rounded-2xl border-4 border-bento-dark shadow-[4px_4px_0px_0px_rgba(45,48,71,1)] transition-all ${
+              isLoggingIn ? 'bg-slate-300 opacity-50' : 'bg-white text-bento-dark hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
+            }`}
+          >
+            USE REDIRECT MODE (ROBUST)
+          </button>
+          
+          <div className="bg-bento-cyan/10 border-2 border-bento-dark p-6 rounded-2xl mb-8 mt-12 text-left">
+            <h3 className="font-bold text-sm uppercase italic mb-3 text-red-600 underline">关键修复步骤 / CRITICAL FIX:</h3>
+            <ul className="text-[10px] font-sans font-bold space-y-2 text-bento-dark/70">
+              <li>1. <strong>检查浏览器设置</strong>: 隐私和安全 &rarr; 第三方 Cookie &rarr; 选择 <strong>允许第三方 Cookie</strong> (非常重要)。</li>
+              <li>2. <strong>Firebase 域名列表</strong>: 确认已添加 <code className="bg-white px-1">strelitzia.netlify.app</code></li>
+              <li>3. <strong>Google 凭据配置</strong>: 在 Google Cloud Console 的 API 凭据中，确保该 API Key 没有限制 Referrer，或者已包含您的 Netlify 域名。</li>
+              <li>4. <strong>尝试 Redirect 模式</strong>: 如果弹窗持续报错，请使用上方的 REDIRECT 按钮。</li>
+            </ul>
+          </div>
+
           <div className="pt-6 border-t-4 border-bento-dark/10">
             <Link 
               to="/" 
