@@ -82,45 +82,40 @@ service cloud.firestore {
     }
 
     // --- Collection Matches ---
-
+    // PUBLIC READ ACCESS for portfolio content
     match /projects/{projectId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidPortfolioItem(incoming());
-      allow update: if isAdmin() && isValidPortfolioItem(incoming());
+      allow create, update: if isAdmin() && isValidPortfolioItem(incoming());
       allow delete: if isAdmin();
     }
 
     match /skills/{skillId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidSkill(incoming());
-      allow update: if isAdmin() && isValidSkill(incoming());
+      allow create, update: if isAdmin() && isValidSkill(incoming());
       allow delete: if isAdmin();
     }
 
     match /certificates/{certId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidCertificate(incoming());
-      allow update: if isAdmin() && isValidCertificate(incoming());
+      allow create, update: if isAdmin() && isValidCertificate(incoming());
       allow delete: if isAdmin();
     }
 
     match /experience/{expId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidExperience(incoming());
-      allow update: if isAdmin() && isValidExperience(incoming());
+      allow create, update: if isAdmin() && isValidExperience(incoming());
       allow delete: if isAdmin();
     }
 
     match /education/{eduId} {
       allow read: if true;
-      allow create: if isAdmin() && isValidEducation(incoming());
-      allow update: if isAdmin() && isValidEducation(incoming());
+      allow create, update: if isAdmin() && isValidEducation(incoming());
       allow delete: if isAdmin();
     }
 
-    match /profile/config {
+    match /profile/{docId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidProfile(incoming());
+      allow write: if isAdmin() && (docId != 'config' || isValidProfile(incoming()));
     }
 
     match /admins/{adminId} {
