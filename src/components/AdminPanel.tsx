@@ -43,8 +43,11 @@ export default function AdminPanel() {
   }, [isAdmin]);
 
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const login = async () => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
     setLoginError(null);
     const provider = new GoogleAuthProvider();
     try {
@@ -53,11 +56,15 @@ export default function AdminPanel() {
       console.error("Login failed", error);
       let msg = error.message;
       if (error.code === 'auth/unauthorized-domain') {
-        msg = "DOMAIN UNAUTHORIZED: Please add this domain to Firebase Console (Auth > Settings > Authorized Domains).";
+        msg = "域名未授权：请将当前域名（如 xxx.netlify.app）添加到 Firebase 控制台的 'Authorized Domains' 列表中 (Authentication > Settings)。";
       } else if (error.code === 'auth/popup-blocked') {
-        msg = "POPUP BLOCKED: Please allow popups for this site to sign in.";
+        msg = "弹出窗口被拦截：请允许浏览器弹出窗口以完成登录。";
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        msg = "请求被取消：请勿在窗口打开时重复点击或关闭弹窗。";
       }
       setLoginError(msg);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -83,18 +90,22 @@ export default function AdminPanel() {
           </div>
           <h1 className="text-4xl font-display mb-8 uppercase italic tracking-tighter">Admin Access</h1>
           {loginError && (
-            <div className="mb-6 p-4 bg-red-100 border-4 border-red-500 text-red-600 font-black text-xs uppercase animate-pulse rounded-xl">
-              ERROR: {loginError}
+            <div className="mb-6 p-4 bg-red-100 border-4 border-red-500 text-red-600 font-sans font-bold text-xs uppercase rounded-xl text-left">
+              <p className="text-red-700 mb-1">登录失败 / LOGIN ERROR:</p>
+              {loginError}
             </div>
           )}
           <button 
             onClick={login}
-            className="w-full flex items-center justify-center gap-4 py-5 bg-[#4285F4] text-white font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all mb-8 group"
+            disabled={isLoggingIn}
+            className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all mb-8 group ${
+              isLoggingIn ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-[#4285F4] text-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
+            }`}
           >
             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-transparent group-hover:border-bento-dark transition-all">
-               <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />
+               {isLoggingIn ? <RefreshCcw className="animate-spin text-bento-dark" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />}
             </div>
-            LOGIN WITH GOOGLE
+            {isLoggingIn ? "CONNECTING..." : "LOGIN WITH GOOGLE"}
           </button>
           <div className="pt-6 border-t-4 border-bento-dark/10">
             <Link 
