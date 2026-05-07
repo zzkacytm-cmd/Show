@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Outfit', sans-serif;
+
+  --color-bento-bg: #FFF8F0;
+  --color-bento-dark: #2D3047;
+  --color-bento-rose: #F43F5E;
+  --color-bento-cyan: #22D3EE;
+  --color-bento-yellow: #FDE047;
+  --color-bento-lime: #A3E635;
+}
+
+@layer base {
+  body {
+    @apply bg-bento-bg text-bento-dark overflow-x-hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-black tracking-tighter;
+  }
+}
+
+.brutal-shadow {
+  box-shadow: 12px 12px 0px 0px rgba(45, 48, 71, 1);
+}
+
+.brutal-shadow-sm {
+  box-shadow: 8px 8px 0px 0px rgba(45, 48, 71, 1);
+}
+
+.brutal-border {
+  @apply border-4 border-bento-dark;
+}
+
+.gradient-mesh {
+  background-color: #ff007f;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(180,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(60,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(30,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 0% 50%, hsla(280,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 50%, hsla(40,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 50%, hsla(150,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 0% 100%, hsla(200,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 100%, hsla(320,100%,50%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 100%, hsla(10,100%,50%,1) 0, transparent 50%);
+}

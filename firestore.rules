@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'zzkacytm@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidPortfolioItem(data) {
+      return data.keys().hasAll(['title', 'description', 'imageUrls', 'order']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.imageUrls is list && data.imageUrls.size() <= 10 &&
+             data.order is number;
+    }
+
+    function isValidSkill(data) {
+      return data.keys().hasAll(['name', 'level', 'order']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.level in ['Beginner', 'Intermediate', 'Advanced', 'Expert'] &&
+             data.order is number;
+    }
+
+    function isValidCertificate(data) {
+      return data.keys().hasAll(['name', 'issuer', 'order']) &&
+             data.name is string && data.name.size() <= 200 &&
+             data.issuer is string && data.issuer.size() <= 200 &&
+             data.order is number;
+    }
+
+    function isValidExperience(data) {
+      return data.keys().hasAll(['jobTitle', 'company', 'period', 'order']) &&
+             data.jobTitle is string && data.jobTitle.size() <= 200 &&
+             data.company is string && data.company.size() <= 200 &&
+             data.period is string && data.period.size() <= 100 &&
+             data.order is number;
+    }
+
+    function isValidEducation(data) {
+      return data.keys().hasAll(['school', 'degree', 'field', 'period', 'order']) &&
+             data.school is string && data.school.size() <= 200 &&
+             data.degree is string && data.degree.size() <= 200 &&
+             data.field is string && data.field.size() <= 200 &&
+             data.period is string && data.period.size() <= 100 &&
+             data.order is number;
+    }
+
+    function isValidProfile(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() <= 100;
+    }
+
+    // --- Collection Matches ---
+
+    match /projects/{projectId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidPortfolioItem(incoming());
+      allow update: if isAdmin() && isValidPortfolioItem(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /skills/{skillId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidSkill(incoming());
+      allow update: if isAdmin() && isValidSkill(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /certificates/{certId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidCertificate(incoming());
+      allow update: if isAdmin() && isValidCertificate(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /experience/{expId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidExperience(incoming());
+      allow update: if isAdmin() && isValidExperience(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /education/{eduId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidEducation(incoming());
+      allow update: if isAdmin() && isValidEducation(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /profile/config {
+      allow read: if true;
+      allow write: if isAdmin() && isValidProfile(incoming());
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manageable via console or initial bootstrap
+    }
+  }
+}

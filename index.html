@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      (function() {
+        // Create an overrides object for common properties that might be overwritten or missing
+        const overrides = {
+          process: {
+            env: { NODE_ENV: 'development' },
+            versions: {},
+            nextTick: (fn) => setTimeout(fn, 0)
+          },
+          // Pre-populate with essential globals to ensure we don't lose them
+          JSON: window.JSON,
+          Promise: window.Promise,
+          console: window.console,
+          fetch: window.fetch.bind(window),
+          Request: window.Request,
+          Response: window.Response,
+          Headers: window.Headers,
+          setTimeout: window.setTimeout.bind(window),
+          clearTimeout: window.clearTimeout.bind(window),
+          setInterval: window.setInterval.bind(window),
+          clearInterval: window.clearInterval.bind(window),
+        };
+
+        const globalProxy = new Proxy(window, {
+          get(target, prop) {
+            if (prop in overrides) return overrides[prop];
+            const val = target[prop];
+            if (typeof val === 'function') {
+              // Constructors/Classes often start with uppercase and should not be bound
+              const isConstructor = typeof prop === 'string' && /^[A-Z]/.test(prop);
+              if (isConstructor) return val;
+              return typeof val.bind === 'function' ? val.bind(target) : val;
+            }
+            return val;
+          },
+          set(target, prop, value) {
+            // Intercept all assignments to the global proxy and store them in overrides
+            // This prevents "Cannot set property X of #<Window> which has only a getter"
+            overrides[prop] = value;
+            return true;
+          },
+          has(target, prop) {
+            return prop in overrides || prop in target;
+          },
+          deleteProperty(target, prop) {
+            if (prop in overrides) {
+              delete overrides[prop];
+              return true;
+            }
+            return true; 
+          }
+        });
+
+        // Store the proxy in a safe, non-colliding location
+        window.__BENTO_GLOBAL__ = globalProxy;
+
+        // Also try to set global/globalThis for native compatibility
+        try {
+          window.global = globalProxy;
+        } catch (e) {}
+        try {
+          // Note: Object.defineProperty on globalThis often fails, so we rely on Vite mapping
+          if (!window.globalThis) window.globalThis = globalProxy;
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

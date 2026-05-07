@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "PortfolioItem": {
+      "title": "Portfolio Item",
+      "description": "A project in the portfolio",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrls": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "link": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["title", "description", "imageUrls", "order"]
+    },
+    "Skill": {
+      "title": "Skill",
+      "description": "A professional skill",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "level": { "type": "string", "enum": ["Beginner", "Intermediate", "Advanced", "Expert"] },
+        "category": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "level", "order"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "A professional certification",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "issuer": { "type": "string" },
+        "date": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "issuer", "order"]
+    },
+    "Experience": {
+      "title": "Experience",
+      "description": "Work experience",
+      "type": "object",
+      "properties": {
+        "jobTitle": { "type": "string" },
+        "company": { "type": "string" },
+        "location": { "type": "string" },
+        "period": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["jobTitle", "company", "period", "order"]
+    },
+    "Education": {
+      "title": "Education",
+      "description": "Educational background",
+      "type": "object",
+      "properties": {
+        "school": { "type": "string" },
+        "degree": { "type": "string" },
+        "field": { "type": "string" },
+        "period": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["school", "degree", "period", "order"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "Site-wide content and contact info",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "tagline": { "type": "string" },
+        "bio": { "type": "string" },
+        "aboutMe": { "type": "string" },
+        "moodEmojis": { "type": "array", "items": { "type": "string" } },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "location": { "type": "string" },
+        "resumeUrl": { "type": "string" },
+        "socialLinks": {
+          "type": "object",
+          "properties": {
+            "wechat": { "type": "string" },
+            "linkedin": { "type": "string" },
+            "email": { "type": "string" },
+            "instagram": { "type": "string" }
+          }
+        },
+        "bannerUrl": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Admin user configuration",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "uid": { "type": "string" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "projects": {
+      "schema": "PortfolioItem",
+      "description": "Collection of projects"
+    },
+    "skills": {
+      "schema": "Skill",
+      "description": "Collection of skills"
+    },
+    "certificates": {
+      "schema": "Certificate",
+      "description": "Collection of certificates"
+    },
+    "experience": {
+      "schema": "Experience",
+      "description": "Collection of work experiences"
+    },
+    "education": {
+      "schema": "Education",
+      "description": "Collection of educational records"
+    },
+    "profile/config": {
+      "schema": "Profile",
+      "description": "Singleton configuration document"
+    },
+    "admins": {
+      "schema": "Admin",
+      "description": "Authorized admin users"
+    }
+  }
+}
