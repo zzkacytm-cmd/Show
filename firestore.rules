@@ -1,19 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
+    
     // --- Helpers ---
     
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     function isAdmin() {
@@ -21,10 +13,6 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
         request.auth.token.email == 'zzkacytm@gmail.com'
       );
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function incoming() {
@@ -35,95 +23,90 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // --- Validation Blueprints ---
+    // --- Validation Helpers ---
 
     function isValidPortfolioItem(data) {
       return data.keys().hasAll(['title', 'description', 'imageUrls', 'order']) &&
-             data.title is string && data.title.size() <= 200 &&
-             data.description is string && data.description.size() <= 2000 &&
-             data.imageUrls is list && data.imageUrls.size() <= 10 &&
-             data.order is number;
+             data.title is string && data.description is string &&
+             data.imageUrls is list && data.order is number;
     }
 
     function isValidSkill(data) {
       return data.keys().hasAll(['name', 'level', 'order']) &&
-             data.name is string && data.name.size() <= 100 &&
-             data.level in ['Beginner', 'Intermediate', 'Advanced', 'Expert'] &&
-             data.order is number;
+             data.name is string && data.order is number;
     }
 
     function isValidCertificate(data) {
       return data.keys().hasAll(['name', 'issuer', 'order']) &&
-             data.name is string && data.name.size() <= 200 &&
-             data.issuer is string && data.issuer.size() <= 200 &&
-             data.order is number;
+             data.name is string && data.issuer is string && data.order is number;
     }
 
     function isValidExperience(data) {
       return data.keys().hasAll(['jobTitle', 'company', 'period', 'order']) &&
-             data.jobTitle is string && data.jobTitle.size() <= 200 &&
-             data.company is string && data.company.size() <= 200 &&
-             data.period is string && data.period.size() <= 100 &&
-             data.order is number;
+             data.jobTitle is string && data.company is string && data.order is number;
     }
 
     function isValidEducation(data) {
       return data.keys().hasAll(['school', 'degree', 'field', 'period', 'order']) &&
-             data.school is string && data.school.size() <= 200 &&
-             data.degree is string && data.degree.size() <= 200 &&
-             data.field is string && data.field.size() <= 200 &&
-             data.period is string && data.period.size() <= 100 &&
-             data.order is number;
+             data.school is string && data.degree is string && data.order is number;
     }
 
     function isValidProfile(data) {
-      return data.keys().hasAll(['name']) &&
-             data.name is string && data.name.size() <= 100;
+      return data.keys().hasAll(['name']) && data.name is string;
     }
 
     // --- Collection Matches ---
-    
-    // PUBLIC READ ACCESS - MUST BE BEFORE WRITE RULES
-    match /profile/config { allow read: if true; }
-    match /projects/{projectId} { allow read: if true; }
-    match /skills/{skillId} { allow read: if true; }
-    match /certificates/{certId} { allow read: if true; }
-    match /experience/{expId} { allow read: if true; }
-    match /education/{eduId} { allow read: if true; }
 
-    // WRITE RULES
-    match /projects/{projectId} {
-      allow create, update: if isAdmin() && isValidPortfolioItem(incoming());
-      allow delete: if isAdmin();
-    }
-
-    match /skills/{skillId} {
-      allow create, update: if isAdmin() && isValidSkill(incoming());
-      allow delete: if isAdmin();
-    }
-
-    match /certificates/{certId} {
-      allow create, update: if isAdmin() && isValidCertificate(incoming());
-      allow delete: if isAdmin();
-    }
-
-    match /experience/{expId} {
-      allow create, update: if isAdmin() && isValidExperience(incoming());
-      allow delete: if isAdmin();
-    }
-
-    match /education/{eduId} {
-      allow create, update: if isAdmin() && isValidEducation(incoming());
-      allow delete: if isAdmin();
-    }
-
+    // 1. Profile Data - Fully Public for reading
     match /profile/{docId} {
+      allow read: if true;
       allow write: if isAdmin() && (docId != 'config' || isValidProfile(incoming()));
     }
 
+    // 2. Projects - Fully Public for reading
+    match /projects/{projectId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidPortfolioItem(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 3. Skills - Fully Public for reading
+    match /skills/{skillId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSkill(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 4. Certificates - Fully Public for reading
+    match /certificates/{certId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidCertificate(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 5. Experience - Fully Public for reading
+    match /experience/{expId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidExperience(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 6. Education - Fully Public for reading
+    match /education/{eduId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidEducation(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 7. Admins - Internal use
     match /admins/{adminId} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    // Global Safety Net - MUST BE AT THE END
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

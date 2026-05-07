@@ -21,6 +21,16 @@ export function PortfolioSection() {
     });
   }, []);
 
+  if (items.length === 0) {
+    return (
+      <Section id="projects" title="Works" bgColor="bg-bento-cyan/10">
+        <div className="bg-white brutal-border brutal-shadow p-12 rounded-[40px] text-center">
+          <p className="text-2xl font-bold opacity-50 italic uppercase italic">Nothing shared yet. Administrator is currently curating works.</p>
+        </div>
+      </Section>
+    );
+  }
+
   return (
     <Section id="projects" title="Works" bgColor="bg-bento-cyan/10">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">

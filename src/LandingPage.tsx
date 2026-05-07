@@ -20,13 +20,17 @@ export default function LandingPage() {
     const unsub = onSnapshot(doc(db, "profile", "config"), (snapshot) => {
       if (snapshot.exists()) {
         setProfile(snapshot.data() as Profile);
+        console.log("Profile data loaded successfully");
+      } else {
+        console.warn("Profile document 'profile/config' does not exist in Firestore. Default data used.");
+        setProfile({ name: "ALEX DESIGN", tagline: "CREATIVE PORTFOLIO", bio: "Visitor, please go to /admin to set up your profile data." });
       }
       setLoading(false);
       setErrorStatus(null);
       clearTimeout(timeout);
     }, (error) => {
-      console.error("Profile fetch failed:", error);
-      setErrorStatus(error.message);
+      console.error("CRITICAL: Profile fetch failed:", error);
+      setErrorStatus(`PERMISSION OR CONNECTION ERROR: ${error.message}. If this persists, the public read rules might not have propagated yet.`);
       setLoading(false);
       clearTimeout(timeout);
     });
