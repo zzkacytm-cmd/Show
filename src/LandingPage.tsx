@@ -10,20 +10,23 @@ import Footer from "./components/Footer";
 export default function LandingPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (loading) setLoading(false); // Forced loading end after 5s
-    }, 5000);
+      if (loading) setLoading(false);
+    }, 8000);
 
     const unsub = onSnapshot(doc(db, "profile", "config"), (snapshot) => {
       if (snapshot.exists()) {
         setProfile(snapshot.data() as Profile);
       }
       setLoading(false);
+      setErrorStatus(null);
       clearTimeout(timeout);
     }, (error) => {
       console.error("Profile fetch failed:", error);
+      setErrorStatus(error.message);
       setLoading(false);
       clearTimeout(timeout);
     });
@@ -56,6 +59,11 @@ export default function LandingPage() {
         <ExperienceSection />
         <EducationSection />
       </main>
+      {errorStatus && (
+        <div className="fixed bottom-4 left-4 bg-red-500 text-white p-4 rounded-xl shadow-lg z-50 animate-bounce font-black text-xs">
+          CONNECTION ERROR: {errorStatus}
+        </div>
+      )}
       <Footer profile={profile} />
     </div>
   );

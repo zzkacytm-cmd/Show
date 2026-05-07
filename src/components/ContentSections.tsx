@@ -15,7 +15,10 @@ export function PortfolioSection() {
     return onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PortfolioItem));
       setItems(data);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "projects"));
+    }, (error) => {
+      console.error("Projects LIST failed:", error);
+      handleFirestoreError(error, OperationType.LIST, "projects");
+    });
   }, []);
 
   return (
