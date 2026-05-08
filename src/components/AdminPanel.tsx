@@ -16,10 +16,14 @@ export default function AdminPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
   useEffect(() => {
     const savedAdmin = localStorage.getItem("is_portfolio_admin") === "true";
     setIsAdminStatus(savedAdmin);
   }, []);
+
+  const clearGlobalError = () => setGlobalError(null);
 
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +149,30 @@ export default function AdminPanel() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-12">
+        <AnimatePresence>
+          {globalError && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mb-8 bg-red-100 border-4 border-red-500 p-6 rounded-2xl flex items-center justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <Trash2 className="text-red-500" />
+                <div className="font-display font-black text-red-600 uppercase">
+                  ERROR: {globalError}
+                </div>
+              </div>
+              <button 
+                onClick={clearGlobalError}
+                className="p-2 hover:bg-red-200 rounded-lg transition-colors"
+              >
+                CLOSE
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex flex-wrap gap-4 mb-12">
           {[
             { id: "profile", label: "Profile", icon: "👤" },
@@ -168,12 +196,12 @@ export default function AdminPanel() {
 
         <div className="bg-white brutal-border brutal-shadow-sm rounded-3xl p-8 md:p-12">
           <AnimatePresence mode="wait">
-            {activeTab === "profile" && <ProfileEditor key="profile" />}
-            {activeTab === "projects" && <ListEditor key="projects" collectionPath="projects" type="project" />}
-            {activeTab === "skills" && <ListEditor key="skills" collectionPath="skills" type="skill" />}
-            {activeTab === "certs" && <ListEditor key="certs" collectionPath="certificates" type="cert" />}
-            {activeTab === "experience" && <ListEditor key="experience" collectionPath="experience" type="experience" />}
-            {activeTab === "education" && <ListEditor key="education" collectionPath="education" type="education" />}
+            {activeTab === "profile" && <ProfileEditor key="profile" onError={setGlobalError} />}
+            {activeTab === "projects" && <ListEditor key="projects" collectionPath="projects" type="project" onError={setGlobalError} />}
+            {activeTab === "skills" && <ListEditor key="skills" collectionPath="skills" type="skill" onError={setGlobalError} />}
+            {activeTab === "certs" && <ListEditor key="certs" collectionPath="certificates" type="cert" onError={setGlobalError} />}
+            {activeTab === "experience" && <ListEditor key="experience" collectionPath="experience" type="experience" onError={setGlobalError} />}
+            {activeTab === "education" && <ListEditor key="education" collectionPath="education" type="education" onError={setGlobalError} />}
           </AnimatePresence>
         </div>
       </div>
@@ -181,23 +209,25 @@ export default function AdminPanel() {
   );
 }
 
-function ProfileEditor() {
+function ProfileEditor({ onError }: { onError: (msg: string) => void }) {
   const [profile, setProfile] = useState<Profile>({ name: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     return onSnapshot(doc(db, "profile", "config"), (snapshot) => {
       if (snapshot.exists()) setProfile(snapshot.data() as Profile);
+    }, (error) => {
+      onError(error.message);
     });
-  }, []);
+  }, [onError]);
 
   const save = async () => {
     setSaving(true);
     try {
       await setDoc(doc(db, "profile", "config"), profile);
       alert("Profile saved!");
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "profile/config");
+    } catch (error: any) {
+      onError(error.message);
     } finally {
       setSaving(false);
     }
@@ -271,37 +301,48 @@ function ProfileEditor() {
   );
 }
 
-function ListEditor({ collectionPath, type }: { collectionPath: string, type: string }) {
+function ListEditor({ collectionPath, type, onError }: { collectionPath: string, type: string, onError: (msg: string) => void }) {
   const [items, setItems] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [addingDoc, setAddingDoc] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     const q = query(collection(db, collectionPath), orderBy("order", "asc"));
     return onSnapshot(q, (snapshot) => {
       setItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      onError(error.message);
+      setLoading(false);
     });
-  }, [collectionPath]);
+  }, [collectionPath, onError]);
 
   const add = async () => {
     if (addingDoc) return;
     setAddingDoc(true);
+    console.log("Adding new item to:", collectionPath);
     
     // Calculate next order more reliably
-    const maxOrder = items.length > 0 ? Math.max(...items.map(i => i.order || 0)) : -1;
+    const maxOrder = items.reduce((max, item) => {
+      const val = typeof item.order === 'number' ? item.order : parseInt(item.order) || 0;
+      return Math.max(max, val);
+    }, -1);
+    
     const newItem: any = { order: maxOrder + 1 };
-    if (type === 'project') Object.assign(newItem, { title: "New Project", description: "Project description", imageUrls: ["https://placehold.co/600x400"] });
+    if (type === 'project') Object.assign(newItem, { title: "New Project", description: "Project description", imageUrls: ["https://placehold.co/600x400"], category: "Web" });
     if (type === 'skill') Object.assign(newItem, { name: "New Skill", level: "Intermediate" });
     if (type === 'cert') Object.assign(newItem, { name: "New Certificate", issuer: "Issuer" });
-    if (type === 'experience') Object.assign(newItem, { jobTitle: "New Role", company: "Company", period: "2024 - Present" });
-    if (type === 'education') Object.assign(newItem, { school: "University Name", degree: "Bachelor's", field: "Field of Study", period: "2020 - 2024" });
+    if (type === 'experience') Object.assign(newItem, { jobTitle: "New Role", company: "Company", period: "2024 - Present", description: "Responsibilities..." });
+    if (type === 'education') Object.assign(newItem, { school: "University Name", degree: "Bachelor's", field: "Field of Study", period: "2020 - 2024", description: "Studies..." });
 
     try {
-      await addDoc(collection(db, collectionPath), newItem);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, collectionPath);
+      const docRef = await addDoc(collection(db, collectionPath), newItem);
+      console.log("Document added with ID:", docRef.id);
+    } catch (error: any) {
+      console.error("Add failed:", error);
+      onError(error.message);
     } finally {
       setAddingDoc(false);
     }
@@ -318,16 +359,16 @@ function ListEditor({ collectionPath, type }: { collectionPath: string, type: st
     try {
       await deleteDoc(doc(db, collectionPath, id));
       setDeletingId(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, collectionPath);
+    } catch (error: any) {
+      onError(error.message);
     }
   };
 
   const update = async (id: string, data: any) => {
     try {
       await updateDoc(doc(db, collectionPath, id), data);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${collectionPath}/${id}`);
+    } catch (error: any) {
+      onError(error.message);
     }
   };
 

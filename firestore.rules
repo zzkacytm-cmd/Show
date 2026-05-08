@@ -59,41 +59,41 @@ service cloud.firestore {
     // 1. Profile Data - Fully Public for reading
     match /profile/{docId} {
       allow read: if true;
-      allow write: if isAdmin() && (docId != 'config' || isValidProfile(incoming()));
+      allow write: if isAdmin();
     }
 
     // 2. Projects - Fully Public for reading
     match /projects/{projectId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidPortfolioItem(incoming());
+      allow write: if isAdmin();
       allow delete: if isAdmin();
     }
 
     // 3. Skills - Fully Public for reading
     match /skills/{skillId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidSkill(incoming());
+      allow write: if isAdmin();
       allow delete: if isAdmin();
     }
 
     // 4. Certificates - Fully Public for reading
     match /certificates/{certId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidCertificate(incoming());
+      allow write: if isAdmin();
       allow delete: if isAdmin();
     }
 
     // 5. Experience - Fully Public for reading
     match /experience/{expId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidExperience(incoming());
+      allow write: if isAdmin();
       allow delete: if isAdmin();
     }
 
     // 6. Education - Fully Public for reading
     match /education/{eduId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidEducation(incoming());
+      allow write: if isAdmin();
       allow delete: if isAdmin();
     }
 
