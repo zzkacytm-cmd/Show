@@ -56,45 +56,39 @@ service cloud.firestore {
 
     // --- Collection Matches ---
 
-    // 1. Profile Data - Fully Public for reading
+    // 1. Profile Data - Fully Public
     match /profile/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
-    // 2. Projects - Fully Public for reading
+    // 2. Projects - Fully Public
     match /projects/{projectId} {
-      allow read: if true;
-      allow write: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
+      allow delete: if true;
     }
 
-    // 3. Skills - Fully Public for reading
+    // 3. Skills - Fully Public
     match /skills/{skillId} {
-      allow read: if true;
-      allow write: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
+      allow delete: if true;
     }
 
-    // 4. Certificates - Fully Public for reading
+    // 4. Certificates - Fully Public
     match /certificates/{certId} {
-      allow read: if true;
-      allow write: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
+      allow delete: if true;
     }
 
-    // 5. Experience - Fully Public for reading
+    // 5. Experience - Fully Public
     match /experience/{expId} {
-      allow read: if true;
-      allow write: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
+      allow delete: if true;
     }
 
-    // 6. Education - Fully Public for reading
+    // 6. Education - Fully Public
     match /education/{eduId} {
-      allow read: if true;
-      allow write: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
+      allow delete: if true;
     }
 
     // 7. Admins - Internal use
