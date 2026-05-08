@@ -303,15 +303,30 @@ function ProfileEditor({ onError }: { onError: (msg: string) => void }) {
 
 function ListEditor({ collectionPath, type, onError }: { collectionPath: string, type: string, onError: (msg: string) => void }) {
   const [items, setItems] = useState<any[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, any>>({});
+  const [savingIds, setSavingIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [addingDoc, setAddingDoc] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     const q = query(collection(db, collectionPath), orderBy("order", "asc"));
     return onSnapshot(q, (snapshot) => {
-      setItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const newItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setItems(newItems);
+      
+      // Initialize drafts for new items only if not already editing
+      setDrafts(prev => {
+        const next = { ...prev };
+        newItems.forEach(item => {
+          if (!next[item.id]) {
+            next[item.id] = item;
+          }
+        });
+        return next;
+      });
+      
       setLoading(false);
     }, (error) => {
       onError(error.message);
@@ -322,7 +337,6 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
   const add = async () => {
     if (addingDoc) return;
     setAddingDoc(true);
-    console.log("Adding new item to:", collectionPath);
     
     // Calculate next order more reliably
     const maxOrder = items.reduce((max, item) => {
@@ -338,17 +352,13 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
     if (type === 'education') Object.assign(newItem, { school: "University Name", degree: "Bachelor's", field: "Field of Study", period: "2020 - 2024", description: "Studies..." });
 
     try {
-      const docRef = await addDoc(collection(db, collectionPath), newItem);
-      console.log("Document added with ID:", docRef.id);
+      await addDoc(collection(db, collectionPath), newItem);
     } catch (error: any) {
-      console.error("Add failed:", error);
       onError(error.message);
     } finally {
       setAddingDoc(false);
     }
   };
-
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const remove = async (id: string) => {
     if (deletingId !== id) {
@@ -359,17 +369,38 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
     try {
       await deleteDoc(doc(db, collectionPath, id));
       setDeletingId(null);
+      setDrafts(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (error: any) {
       onError(error.message);
     }
   };
 
-  const update = async (id: string, data: any) => {
+  const saveItem = async (id: string) => {
+    const data = drafts[id];
+    if (!data) return;
+    
+    setSavingIds(prev => ({ ...prev, [id]: true }));
     try {
-      await updateDoc(doc(db, collectionPath, id), data);
+      // Remove id from the data object before saving to Firestore
+      const { id: _, ...saveData } = data;
+      await updateDoc(doc(db, collectionPath, id), saveData);
+      alert("Item saved successfully!");
     } catch (error: any) {
       onError(error.message);
+    } finally {
+      setSavingIds(prev => ({ ...prev, [id]: false }));
     }
+  };
+
+  const updateDraft = (id: string, updates: any) => {
+    setDrafts(prev => ({
+      ...prev,
+      [id]: { ...prev[id], ...updates }
+    }));
   };
 
   if (loading) return <div className="text-center font-display animate-pulse">LOADING...</div>;
@@ -380,174 +411,174 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
         <h2 className="text-4xl font-display uppercase tracking-tight">MANAGE {collectionPath}</h2>
       </div>
 
-      <div className="space-y-6">
-        {items.map((item) => (
-          <div key={item.id} className="bg-slate-50 brutal-border p-6 rounded-2xl group relative">
-            <div className="flex flex-wrap gap-4 items-center">
-               <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {type === 'project' && (
-                    <>
-                      <Field label="Title" value={item.title} onChange={(v) => update(item.id, { title: v })} />
-                      <Field label="Category" value={item.category || ""} onChange={(v) => update(item.id, { category: v })} />
-                      <Field label="Order" value={item.order.toString()} onChange={(v) => update(item.id, { order: parseInt(v) || 0 })} />
-                      <div className="col-span-full">
-                         <Field label="Description" value={item.description} onChange={(v) => update(item.id, { description: v })} />
-                      </div>
-                      <div className="col-span-full space-y-4">
-                         <label className="text-sm font-display font-bold uppercase mb-2 block">Project Images (Local Upload)</label>
-                         <div className="grid grid-cols-1 gap-4">
-                            {(item.imageUrls || []).map((url: string, imgIdx: number) => (
-                              <div key={imgIdx} className="flex gap-4 items-center bg-slate-50 p-4 rounded-xl border-2 border-bento-dark">
-                                <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-bento-dark shrink-0 bg-white">
-                                  <img src={url} alt="" className="w-full h-full object-cover" />
+      <div className="space-y-12">
+        {items.map((item) => {
+          const draft = drafts[item.id] || item;
+          const isSaving = savingIds[item.id] || false;
+          const hasChanges = JSON.stringify(draft) !== JSON.stringify(item);
+
+          return (
+            <div key={item.id} className="bg-slate-50 brutal-border p-8 rounded-3xl group relative transition-all hover:bg-white">
+              <div className="flex flex-col gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {type === 'project' && (
+                      <>
+                        <Field label="Title" value={draft.title} onChange={(v) => updateDraft(item.id, { title: v })} />
+                        <Field label="Category" value={draft.category || ""} onChange={(v) => updateDraft(item.id, { category: v })} />
+                        <Field label="Order" value={draft.order.toString()} onChange={(v) => updateDraft(item.id, { order: parseInt(v) || 0 })} />
+                        <div className="col-span-full">
+                           <Field label="Description" value={draft.description} onChange={(v) => updateDraft(item.id, { description: v })} />
+                        </div>
+                        <div className="col-span-full space-y-4">
+                           <label className="text-sm font-display font-bold uppercase mb-2 block">Project Images (Local Upload)</label>
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {(draft.imageUrls || []).map((url: string, imgIdx: number) => (
+                                <div key={imgIdx} className="flex gap-4 items-center bg-white p-4 rounded-xl border-2 border-bento-dark shadow-sm">
+                                  <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-bento-dark shrink-0 bg-white">
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                  <button 
+                                    onClick={() => {
+                                      const newUrls = draft.imageUrls.filter((_: any, idx: number) => idx !== imgIdx);
+                                      updateDraft(item.id, { imageUrls: newUrls });
+                                    }}
+                                    className="p-3 bg-red-100 text-red-500 rounded-lg hover:bg-red-200 transition-colors"
+                                  >
+                                    <Trash size={18} />
+                                  </button>
                                 </div>
-                                <div className="flex-grow text-xs font-mono truncate opacity-50">
-                                  {url.startsWith('data:') ? 'Base64 Encoded Image' : url}
-                                </div>
-                                <button 
-                                  onClick={() => {
-                                    const newUrls = item.imageUrls.filter((_: any, idx: number) => idx !== imgIdx);
-                                    update(item.id, { imageUrls: newUrls });
-                                  }}
-                                  className="p-3 bg-red-100 text-red-500 rounded-lg hover:bg-red-200 transition-colors"
-                                >
-                                  <Trash size={18} />
-                                </button>
-                              </div>
-                            ))}
-                            
-                            <label className="flex flex-col items-center justify-center gap-3 border-4 border-dashed border-slate-300 p-8 rounded-3xl hover:border-bento-cyan hover:bg-bento-cyan/5 transition-all cursor-pointer group">
-                              <PlusCircle className="w-10 h-10 text-slate-400 group-hover:text-bento-cyan transition-colors" />
-                              <span className="font-black text-sm uppercase italic">Upload New Image From Local</span>
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                className="hidden" 
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    try {
-                                      // Resize and compress image to avoid Firestore limit
-                                      const reader = new FileReader();
-                                      reader.onload = async (event) => {
-                                        const img = new Image();
-                                        img.src = event.target?.result as string;
-                                        img.onload = () => {
-                                          const canvas = document.createElement('canvas');
-                                          const MAX_WIDTH = 1200;
-                                          const scale = Math.min(1, MAX_WIDTH / img.width);
-                                          canvas.width = img.width * scale;
-                                          canvas.height = img.height * scale;
-                                          const ctx = canvas.getContext('2d');
-                                          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                          const base64 = canvas.toDataURL('image/jpeg', 0.7);
-                                          const newUrls = [...(item.imageUrls || []), base64];
-                                          update(item.id, { imageUrls: newUrls });
+                              ))}
+                              
+                              <label className="flex flex-col items-center justify-center gap-2 border-4 border-dashed border-slate-300 p-6 rounded-2xl hover:border-bento-cyan hover:bg-bento-cyan/5 transition-all cursor-pointer group">
+                                <PlusCircle className="w-8 h-8 text-slate-400 group-hover:text-bento-cyan transition-colors" />
+                                <span className="font-black text-[10px] uppercase italic">Add Image</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      try {
+                                        const reader = new FileReader();
+                                        reader.onload = async (event) => {
+                                          const img = new Image();
+                                          img.src = event.target?.result as string;
+                                          img.onload = () => {
+                                            const canvas = document.createElement('canvas');
+                                            const MAX_WIDTH = 1000;
+                                            const scale = Math.min(1, MAX_WIDTH / img.width);
+                                            canvas.width = img.width * scale;
+                                            canvas.height = img.height * scale;
+                                            const ctx = canvas.getContext('2d');
+                                            ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                            const base64 = canvas.toDataURL('image/jpeg', 0.6);
+                                            const newUrls = [...(draft.imageUrls || []), base64];
+                                            updateDraft(item.id, { imageUrls: newUrls });
+                                          };
                                         };
-                                      };
-                                      reader.readAsDataURL(file);
-                                    } catch (err) {
-                                      console.error("Upload failed", err);
+                                        reader.readAsDataURL(file);
+                                      } catch (err) {
+                                        console.error("Upload failed", err);
+                                      }
                                     }
-                                  }
-                                }} 
-                              />
-                            </label>
-                         </div>
-                         <Field label="External Project Link" value={item.link || ""} onChange={(v) => update(item.id, { link: v })} icon={<LinkIcon className="w-5 h-5" />} />
-                      </div>
-                    </>
-                  )}
-                  {type === 'skill' && (
-                    <>
-                      <Field label="Skill Name" value={item.name} onChange={(v) => update(item.id, { name: v })} />
-                      <div className="flex flex-col gap-2">
-                        <label className="text-sm font-display font-bold uppercase">Level</label>
-                        <select 
-                          value={item.level} 
-                          onChange={(e) => update(item.id, { level: e.target.value })}
-                          className="bg-white brutal-border p-3 rounded-lg font-sans"
-                        >
-                          {["Beginner", "Intermediate", "Advanced", "Expert"].map(l => <option key={l} value={l}>{l}</option>)}
-                        </select>
-                      </div>
-                      <Field label="Order" value={item.order.toString()} onChange={(v) => update(item.id, { order: parseInt(v) || 0 })} />
-                    </>
-                  )}
-                  {type === 'cert' && (
-                    <>
-                      <Field label="Name" value={item.name} onChange={(v) => update(item.id, { name: v })} />
-                      <Field label="Issuer" value={item.issuer} onChange={(v) => update(item.id, { issuer: v })} />
-                      <Field label="Order" value={item.order.toString()} onChange={(v) => update(item.id, { order: parseInt(v) || 0 })} />
-                    </>
-                  )}
-                  {type === 'experience' && (
-                    <>
-                      <Field label="Job Title" value={item.jobTitle} onChange={(v) => update(item.id, { jobTitle: v })} />
-                      <Field label="Company" value={item.company} onChange={(v) => update(item.id, { company: v })} />
-                      <Field label="Period" value={item.period} onChange={(v) => update(item.id, { period: v })} />
-                      <div className="col-span-full">
-                         <label className="text-sm font-display font-bold uppercase mb-2 block">Description</label>
-                         <textarea 
-                           value={item.description || ""} 
-                           onChange={(e) => update(item.id, { description: e.target.value })}
-                           className="w-full bg-white brutal-border p-3 rounded-lg min-h-[100px]"
-                         />
-                      </div>
-                      <Field label="Order" value={item.order.toString()} onChange={(v) => update(item.id, { order: parseInt(v) || 0 })} />
-                    </>
-                  )}
-                  {type === 'education' && (
-                    <>
-                      <Field label="School" value={item.school} onChange={(v) => update(item.id, { school: v })} />
-                      <Field label="Degree" value={item.degree} onChange={(v) => update(item.id, { degree: v })} />
-                      <Field label="Field" value={item.field} onChange={(v) => update(item.id, { field: v })} />
-                      <Field label="Period" value={item.period} onChange={(v) => update(item.id, { period: v })} />
-                      <div className="col-span-full">
-                         <label className="text-sm font-display font-bold uppercase mb-2 block">Description</label>
-                         <textarea 
-                           value={item.description || ""} 
-                           onChange={(e) => update(item.id, { description: e.target.value })}
-                           className="w-full bg-white brutal-border p-3 rounded-lg min-h-[100px]"
-                         />
-                      </div>
-                      <Field label="Order" value={item.order.toString()} onChange={(v) => update(item.id, { order: parseInt(v) || 0 })} />
-                    </>
-                  )}
-                  {type === 'service' && (
-                    <>
-                      <Field label="Service Title" value={item.title} onChange={(v) => update(item.id, { title: v })} />
-                      <Field label="Icon (emoji or Lucide icon name)" value={item.icon || ""} onChange={(v) => update(item.id, { icon: v })} />
-                      <div className="col-span-full">
-                         <label className="text-sm font-display font-bold uppercase mb-2 block">Description</label>
-                         <textarea 
-                           value={item.description || ""} 
-                           onChange={(e) => update(item.id, { description: e.target.value })}
-                           className="w-full bg-white brutal-border p-3 rounded-lg min-h-[100px]"
-                         />
-                      </div>
-                      <Field label="Order" value={item.order.toString()} onChange={(v) => update(item.id, { order: parseInt(v) || 0 })} />
-                    </>
-                  )}
-               </div>
-               <button 
-                 onClick={() => remove(item.id)}
-                 className={`p-4 rounded-xl transition-all self-start flex items-center gap-2 font-black italic uppercase text-xs ${
-                   deletingId === item.id 
-                    ? "bg-red-500 text-white animate-pulse" 
-                    : "bg-red-100 text-red-500 hover:bg-red-500 hover:text-white"
-                 }`}
-                 title="Delete Item"
-               >
-                 <Trash size={deletingId === item.id ? 20 : 24} />
-                 {deletingId === item.id && "Confirm?"}
-               </button>
+                                  }} 
+                                />
+                              </label>
+                           </div>
+                           <Field label="External Project Link" value={draft.link || ""} onChange={(v) => updateDraft(item.id, { link: v })} icon={<LinkIcon className="w-5 h-5" />} />
+                        </div>
+                      </>
+                    )}
+                    {type === 'skill' && (
+                      <>
+                        <Field label="Skill Name" value={draft.name} onChange={(v) => updateDraft(item.id, { name: v })} />
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-display font-bold uppercase">Level</label>
+                          <select 
+                            value={draft.level} 
+                            onChange={(e) => updateDraft(item.id, { level: e.target.value })}
+                            className="bg-white brutal-border p-3 rounded-lg font-sans h-[58px]"
+                          >
+                            {["Beginner", "Intermediate", "Advanced", "Expert"].map(l => <option key={l} value={l}>{l}</option>)}
+                          </select>
+                        </div>
+                        <Field label="Order" value={draft.order.toString()} onChange={(v) => updateDraft(item.id, { order: parseInt(v) || 0 })} />
+                      </>
+                    )}
+                    {type === 'cert' && (
+                      <>
+                        <Field label="Name" value={draft.name} onChange={(v) => updateDraft(item.id, { name: v })} />
+                        <Field label="Issuer" value={draft.issuer} onChange={(v) => updateDraft(item.id, { issuer: v })} />
+                        <Field label="Order" value={draft.order.toString()} onChange={(v) => updateDraft(item.id, { order: parseInt(v) || 0 })} />
+                      </>
+                    )}
+                    {type === 'experience' && (
+                      <>
+                        <Field label="Job Title" value={draft.jobTitle} onChange={(v) => updateDraft(item.id, { jobTitle: v })} />
+                        <Field label="Company" value={draft.company} onChange={(v) => updateDraft(item.id, { company: v })} />
+                        <Field label="Period" value={draft.period} onChange={(v) => updateDraft(item.id, { period: v })} />
+                        <div className="col-span-full">
+                           <label className="text-sm font-display font-bold uppercase mb-2 block">Description</label>
+                           <textarea 
+                             value={draft.description || ""} 
+                             onChange={(e) => updateDraft(item.id, { description: e.target.value })}
+                             className="w-full bg-white brutal-border p-4 rounded-xl min-h-[100px] font-bold"
+                           />
+                        </div>
+                        <Field label="Order" value={draft.order.toString()} onChange={(v) => updateDraft(item.id, { order: parseInt(v) || 0 })} />
+                      </>
+                    )}
+                    {type === 'education' && (
+                      <>
+                        <Field label="School" value={draft.school} onChange={(v) => updateDraft(item.id, { school: v })} />
+                        <Field label="Degree" value={draft.degree} onChange={(v) => updateDraft(item.id, { degree: v })} />
+                        <Field label="Field" value={draft.field} onChange={(v) => updateDraft(item.id, { field: v })} />
+                        <Field label="Period" value={draft.period} onChange={(v) => updateDraft(item.id, { period: v })} />
+                        <div className="col-span-full">
+                           <label className="text-sm font-display font-bold uppercase mb-2 block">Description</label>
+                           <textarea 
+                             value={draft.description || ""} 
+                             onChange={(e) => updateDraft(item.id, { description: e.target.value })}
+                             className="w-full bg-white brutal-border p-4 rounded-xl min-h-[100px] font-bold"
+                           />
+                        </div>
+                        <Field label="Order" value={draft.order.toString()} onChange={(v) => updateDraft(item.id, { order: parseInt(v) || 0 })} />
+                      </>
+                    )}
+                 </div>
+                 
+                 <div className="flex flex-wrap gap-4 pt-6 border-t-2 border-bento-dark/10">
+                    <button 
+                      onClick={() => saveItem(item.id)}
+                      disabled={isSaving || !hasChanges}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl font-display font-bold brutal-border brutal-shadow-sm transition-all ${
+                        !hasChanges ? 'opacity-40 grayscale cursor-not-allowed' : 'bg-dopamine-green hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
+                      }`}
+                    >
+                      {isSaving ? <RefreshCcw className="animate-spin" /> : <Save />}
+                      {isSaving ? "SAVING..." : hasChanges ? "SAVE ENTRY" : "NO CHANGES"}
+                    </button>
+
+                    <button 
+                      onClick={() => remove(item.id)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl font-display font-bold brutal-border brutal-shadow-sm transition-all ${
+                        deletingId === item.id 
+                          ? "bg-red-500 text-white animate-pulse" 
+                          : "bg-red-100 text-red-500 hover:bg-red-500 hover:text-white"
+                      }`}
+                    >
+                      <Trash size={20} />
+                      {deletingId === item.id ? "CONFIRM DELETE?" : "DELETE"}
+                    </button>
+                 </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="pt-8 flex justify-center">
+      <div className="pt-12 flex justify-center sticky bottom-8">
         <button 
           onClick={add}
           disabled={addingDoc}
