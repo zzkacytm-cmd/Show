@@ -275,6 +275,7 @@ function ListEditor({ collectionPath, type }: { collectionPath: string, type: st
   const [items, setItems] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [addingDoc, setAddingDoc] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, collectionPath), orderBy("order", "asc"));
@@ -285,7 +286,12 @@ function ListEditor({ collectionPath, type }: { collectionPath: string, type: st
   }, [collectionPath]);
 
   const add = async () => {
-    const newItem: any = { order: items.length };
+    if (addingDoc) return;
+    setAddingDoc(true);
+    
+    // Calculate next order more reliably
+    const maxOrder = items.length > 0 ? Math.max(...items.map(i => i.order || 0)) : -1;
+    const newItem: any = { order: maxOrder + 1 };
     if (type === 'project') Object.assign(newItem, { title: "New Project", description: "Project description", imageUrls: ["https://placehold.co/600x400"] });
     if (type === 'skill') Object.assign(newItem, { name: "New Skill", level: "Intermediate" });
     if (type === 'cert') Object.assign(newItem, { name: "New Certificate", issuer: "Issuer" });
@@ -296,6 +302,8 @@ function ListEditor({ collectionPath, type }: { collectionPath: string, type: st
       await addDoc(collection(db, collectionPath), newItem);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, collectionPath);
+    } finally {
+      setAddingDoc(false);
     }
   };
 
@@ -327,14 +335,8 @@ function ListEditor({ collectionPath, type }: { collectionPath: string, type: st
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
-      <div className="flex items-center justify-between mb-12">
+      <div className="flex items-center justify-between mb-8">
         <h2 className="text-4xl font-display uppercase tracking-tight">MANAGE {collectionPath}</h2>
-        <button 
-          onClick={add}
-          className="flex items-center gap-2 px-6 py-3 bg-dopamine-yellow font-display font-bold rounded-xl brutal-border brutal-shadow-sm hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
-        >
-          <PlusCircle /> ADD NEW
-        </button>
       </div>
 
       <div className="space-y-6">
@@ -502,6 +504,21 @@ function ListEditor({ collectionPath, type }: { collectionPath: string, type: st
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="pt-8 flex justify-center">
+        <button 
+          onClick={add}
+          disabled={addingDoc}
+          className={`group flex items-center gap-4 px-12 py-5 bg-dopamine-yellow font-display font-black text-2xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {addingDoc ? (
+            <RefreshCcw className="animate-spin" />
+          ) : (
+            <PlusCircle className="group-hover:rotate-90 transition-transform duration-300" />
+          )}
+          {addingDoc ? "ADDING..." : `ADD NEW ${type.toUpperCase()}`}
+        </button>
       </div>
     </motion.div>
   );
