@@ -32,7 +32,7 @@ export default function AdminPanel() {
       localStorage.setItem("is_portfolio_admin", "true");
       setIsLoggingIn(false);
     } else {
-      setLoginError("账号或密码不正确。请确认使用 zzkacytm@gmail.com / zzk980824");
+      setLoginError("账号或密码不正确。");
       setIsLoggingIn(false);
     }
   };
@@ -77,7 +77,7 @@ export default function AdminPanel() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full bg-slate-50 border-4 border-bento-dark p-4 rounded-2xl font-bold focus:outline-none focus:ring-4 ring-bento-cyan/20 transition-all"
-                placeholder="zzkacytm@gmail.com"
+                placeholder="admin@example.com"
               />
             </div>
             <div>
@@ -88,7 +88,7 @@ export default function AdminPanel() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full bg-slate-50 border-4 border-bento-dark p-4 rounded-2xl font-bold focus:outline-none focus:ring-4 ring-bento-cyan/20 transition-all"
-                placeholder="请输入 zzk980824"
+                placeholder="••••••••"
               />
             </div>
             
