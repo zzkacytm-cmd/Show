@@ -17,6 +17,7 @@ export default function AdminPanel() {
   const [password, setPassword] = useState("");
 
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem("is_portfolio_admin") === "true";
@@ -24,6 +25,10 @@ export default function AdminPanel() {
   }, []);
 
   const clearGlobalError = () => setGlobalError(null);
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
 
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +176,18 @@ export default function AdminPanel() {
               </button>
             </motion.div>
           )}
+
+          {successMessage && (
+            <motion.div 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="fixed top-8 left-1/2 -translate-x-1/2 z-50 bg-dopamine-green brutal-border brutal-shadow p-4 rounded-xl flex items-center gap-3"
+            >
+              <Save size={20} />
+              <div className="font-display font-bold uppercase">{successMessage}</div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <div className="flex flex-wrap gap-4 mb-12">
@@ -196,12 +213,12 @@ export default function AdminPanel() {
 
         <div className="bg-white brutal-border brutal-shadow-sm rounded-3xl p-8 md:p-12">
           <AnimatePresence mode="wait">
-            {activeTab === "profile" && <ProfileEditor key="profile" onError={setGlobalError} />}
-            {activeTab === "projects" && <ListEditor key="projects" collectionPath="projects" type="project" onError={setGlobalError} />}
-            {activeTab === "skills" && <ListEditor key="skills" collectionPath="skills" type="skill" onError={setGlobalError} />}
-            {activeTab === "certs" && <ListEditor key="certs" collectionPath="certificates" type="cert" onError={setGlobalError} />}
-            {activeTab === "experience" && <ListEditor key="experience" collectionPath="experience" type="experience" onError={setGlobalError} />}
-            {activeTab === "education" && <ListEditor key="education" collectionPath="education" type="education" onError={setGlobalError} />}
+            {activeTab === "profile" && <ProfileEditor key="profile" onError={setGlobalError} onSuccess={showSuccess} />}
+            {activeTab === "projects" && <ListEditor key="projects" collectionPath="projects" type="project" onError={setGlobalError} onSuccess={showSuccess} />}
+            {activeTab === "skills" && <ListEditor key="skills" collectionPath="skills" type="skill" onError={setGlobalError} onSuccess={showSuccess} />}
+            {activeTab === "certs" && <ListEditor key="certs" collectionPath="certificates" type="cert" onError={setGlobalError} onSuccess={showSuccess} />}
+            {activeTab === "experience" && <ListEditor key="experience" collectionPath="experience" type="experience" onError={setGlobalError} onSuccess={showSuccess} />}
+            {activeTab === "education" && <ListEditor key="education" collectionPath="education" type="education" onError={setGlobalError} onSuccess={showSuccess} />}
           </AnimatePresence>
         </div>
       </div>
@@ -209,7 +226,7 @@ export default function AdminPanel() {
   );
 }
 
-function ProfileEditor({ onError }: { onError: (msg: string) => void }) {
+function ProfileEditor({ onError, onSuccess }: { onError: (msg: string) => void, onSuccess: (msg: string) => void }) {
   const [profile, setProfile] = useState<Profile>({ name: "" });
   const [saving, setSaving] = useState(false);
 
@@ -225,7 +242,7 @@ function ProfileEditor({ onError }: { onError: (msg: string) => void }) {
     setSaving(true);
     try {
       await setDoc(doc(db, "profile", "config"), profile);
-      alert("Profile saved!");
+      onSuccess("Profile updated!");
     } catch (error: any) {
       onError(error.message);
     } finally {
@@ -301,7 +318,7 @@ function ProfileEditor({ onError }: { onError: (msg: string) => void }) {
   );
 }
 
-function ListEditor({ collectionPath, type, onError }: { collectionPath: string, type: string, onError: (msg: string) => void }) {
+function ListEditor({ collectionPath, type, onError, onSuccess }: { collectionPath: string, type: string, onError: (msg: string) => void, onSuccess: (msg: string) => void }) {
   const [items, setItems] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<Record<string, any>>({});
   const [savingIds, setSavingIds] = useState<Record<string, boolean>>({});
@@ -388,7 +405,7 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
       // Remove id from the data object before saving to Firestore
       const { id: _, ...saveData } = data;
       await updateDoc(doc(db, collectionPath, id), saveData);
-      alert("Item saved successfully!");
+      onSuccess("Item updated successfully!");
     } catch (error: any) {
       onError(error.message);
     } finally {
@@ -466,13 +483,13 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
                                           img.src = event.target?.result as string;
                                           img.onload = () => {
                                             const canvas = document.createElement('canvas');
-                                            const MAX_WIDTH = 1000;
+                                            const MAX_WIDTH = 800;
                                             const scale = Math.min(1, MAX_WIDTH / img.width);
                                             canvas.width = img.width * scale;
                                             canvas.height = img.height * scale;
                                             const ctx = canvas.getContext('2d');
                                             ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                            const base64 = canvas.toDataURL('image/jpeg', 0.6);
+                                            const base64 = canvas.toDataURL('image/jpeg', 0.5);
                                             const newUrls = [...(draft.imageUrls || []), base64];
                                             updateDraft(item.id, { imageUrls: newUrls });
                                           };
@@ -578,7 +595,7 @@ function ListEditor({ collectionPath, type, onError }: { collectionPath: string,
         })}
       </div>
 
-      <div className="pt-12 flex justify-center sticky bottom-8">
+      <div className="pt-12">
         <button 
           onClick={add}
           disabled={addingDoc}
