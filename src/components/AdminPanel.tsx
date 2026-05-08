@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { auth, db } from "../config/firebase";
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, setPersistence, browserLocalPersistence, signInWithRedirect } from "firebase/auth";
-import { collection, doc, setDoc, getDoc, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { db } from "../config/firebase";
+import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { Profile, PortfolioItem, Skill, Certificate, Experience, OperationType } from "../types";
 import { handleFirestoreError } from "../utils/error-handler";
 import { LogIn, LogOut, Plus, Trash2, Save, ChevronRight, Image as ImageIcon, Link as LinkIcon, PlusCircle, Trash, RefreshCcw, Home, MapPin, GraduationCap, Briefcase } from "lucide-react";
@@ -9,87 +8,52 @@ import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 
 export default function AdminPanel() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isAdminStatus, setIsAdminStatus] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "projects" | "skills" | "certs" | "experience" | "education">("profile");
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (isAdmin === null) {
-        setIsAdmin(false);
-      }
-    }, 10000);
-
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        try {
-          const adminDoc = await getDoc(doc(db, "admins", u.uid));
-          setIsAdmin(u.email === "zzkacytm@gmail.com" || adminDoc.exists());
-        } catch (e) {
-          console.error("Admin check failed", e);
-          setIsAdmin(false);
-        }
-      } else {
-        setIsAdmin(false);
-      }
-      clearTimeout(timeout);
-    });
-
-    return () => {
-      unsub();
-      clearTimeout(timeout);
-    };
-  }, [isAdmin]);
 
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const login = async (useRedirect = false) => {
-    if (isLoggingIn) return;
+  useEffect(() => {
+    const savedAdmin = localStorage.getItem("is_portfolio_admin") === "true";
+    setIsAdminStatus(savedAdmin);
+  }, []);
+
+  const handleManualLogin = (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoggingIn(true);
     setLoginError(null);
-    const provider = new GoogleAuthProvider();
-    try {
-      await setPersistence(auth, browserLocalPersistence);
-      if (useRedirect) {
-        await signInWithRedirect(auth, provider);
-      } else {
-        await signInWithPopup(auth, provider);
-      }
-    } catch (error: any) {
-      console.error("Detailed Login Error:", error);
-      let msg = error.message;
-      if (error.code === 'auth/unauthorized-domain') {
-        msg = "域名未授权：请在 Firebase 控制台 (Authentication > Settings > Authorized Domains) 中添加当前 Netlify 域名。";
-      } else if (error.code === 'auth/popup-blocked') {
-        msg = "弹出窗口被拦截：请允许浏览器弹出窗口以完成登录。";
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        msg = "请求被取消：请勿在窗口打开时重复点击或关闭弹窗。";
-      } else if (error.code === 'auth/internal-error') {
-        msg = "Firebase 内部错误：可能是由于浏览器禁用了第三方 Cookie 或广告拦截插件。请尝试更换浏览器（推荐 Chrome/Edge）或启用 Redirect 模式登录。";
-        console.error("SERVER ERROR INFO:", error.customData?.serverResponse);
-      }
-      setLoginError(`${msg} (Code: ${error.code})`);
-    } finally {
+
+    // 严格匹配您提供的账号密码
+    if (email === "zzkacytm@gmail.com" && password === "zzk980824") {
+      setIsAdminStatus(true);
+      localStorage.setItem("is_portfolio_admin", "true");
+      setIsLoggingIn(false);
+    } else {
+      setLoginError("账号或密码不正确。请确认使用 zzkacytm@gmail.com / zzk980824");
       setIsLoggingIn(false);
     }
   };
 
-  const logout = () => auth.signOut();
+  const handleLogout = () => {
+    setIsAdminStatus(false);
+    localStorage.removeItem("is_portfolio_admin");
+  };
 
-  if (isAdmin === null) {
+  if (isAdminStatus === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-6">
           <div className="w-16 h-16 border-8 border-bento-cyan border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-2xl font-display font-black animate-pulse uppercase italic tracking-tighter text-bento-dark">Verifying Auth...</div>
+          <div className="text-2xl font-display font-black animate-pulse uppercase italic tracking-tighter text-bento-dark">Initializing...</div>
         </div>
       </div>
     );
   }
 
-  if (!user) {
+  if (!isAdminStatus) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bento-cyan/10 p-6">
         <div className="bg-white brutal-border brutal-shadow p-12 rounded-[40px] max-w-md w-full text-center">
@@ -97,80 +61,58 @@ export default function AdminPanel() {
             <LogIn size={40} />
           </div>
           <h1 className="text-4xl font-display mb-8 uppercase italic tracking-tighter">Admin Access</h1>
+          
           {loginError && (
             <div className="mb-6 p-4 bg-red-100 border-4 border-red-500 text-red-600 font-sans font-bold text-xs uppercase rounded-xl text-left">
-              <p className="text-red-700 mb-1">登录失败 / LOGIN ERROR:</p>
               {loginError}
             </div>
           )}
-          <button 
-            onClick={() => login(false)}
-            disabled={isLoggingIn}
-            className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all group ${
-              isLoggingIn ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-[#4285F4] text-white hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
-            }`}
-          >
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-transparent group-hover:border-bento-dark transition-all">
-               {isLoggingIn ? <RefreshCcw className="animate-spin text-bento-dark" /> : <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />}
+
+          <form onSubmit={handleManualLogin} className="space-y-6 text-left">
+            <div>
+              <label className="block font-display font-black text-sm uppercase mb-2">Account (Email)</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full bg-slate-50 border-4 border-bento-dark p-4 rounded-2xl font-bold focus:outline-none focus:ring-4 ring-bento-cyan/20 transition-all"
+                placeholder="zzkacytm@gmail.com"
+              />
             </div>
-            {isLoggingIn ? "CONNECTING..." : "LOGIN WITH POPUP"}
-          </button>
+            <div>
+              <label className="block font-display font-black text-sm uppercase mb-2">Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-slate-50 border-4 border-bento-dark p-4 rounded-2xl font-bold focus:outline-none focus:ring-4 ring-bento-cyan/20 transition-all"
+                placeholder="请输入 zzk980824"
+              />
+            </div>
+            
+            <button 
+              type="submit"
+              disabled={isLoggingIn}
+              className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all group ${
+                isLoggingIn ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-bento-cyan text-bento-dark hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
+              }`}
+            >
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-transparent group-hover:border-bento-dark transition-all">
+                 {isLoggingIn ? <RefreshCcw className="animate-spin text-bento-dark" /> : <LogIn className="text-bento-dark" />}
+              </div>
+              {isLoggingIn ? "LOGGING IN..." : "SIGN IN"}
+            </button>
+          </form> 
 
-          <button 
-            onClick={() => login(true)}
-            disabled={isLoggingIn}
-            className={`w-full flex items-center justify-center gap-4 py-4 mt-4 font-display font-black text-lg rounded-2xl border-4 border-bento-dark shadow-[4px_4px_0px_0px_rgba(45,48,71,1)] transition-all ${
-              isLoggingIn ? 'bg-slate-300 opacity-50' : 'bg-white text-bento-dark hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
-            }`}
-          >
-            USE REDIRECT MODE (ROBUST)
-          </button>
-          
-          <div className="bg-bento-cyan/10 border-2 border-bento-dark p-6 rounded-2xl mb-8 mt-12 text-left">
-            <h3 className="font-bold text-sm uppercase italic mb-3 text-red-600 underline">关键修复步骤 / CRITICAL FIX:</h3>
-            <ul className="text-[10px] font-sans font-bold space-y-2 text-bento-dark/70">
-              <li>1. <strong>检查浏览器设置</strong>: 隐私和安全 &rarr; 第三方 Cookie &rarr; 选择 <strong>允许第三方 Cookie</strong> (非常重要)。</li>
-              <li>2. <strong>Firebase 域名列表</strong>: 确认已添加 <code className="bg-white px-1">strelitzia.netlify.app</code></li>
-              <li>3. <strong>Google 凭据配置</strong>: 在 Google Cloud Console 的 API 凭据中，确保该 API Key 没有限制 Referrer，或者已包含您的 Netlify 域名。</li>
-              <li>4. <strong>尝试 Redirect 模式</strong>: 如果弹窗持续报错，请使用上方的 REDIRECT 按钮。</li>
-            </ul>
-          </div>
-
-          <div className="pt-6 border-t-4 border-bento-dark/10">
+          <div className="pt-6 mt-8 border-t-4 border-bento-dark/10">
             <Link 
               to="/" 
               className="inline-flex items-center gap-3 font-black uppercase text-sm tracking-widest text-bento-dark/50 hover:text-bento-dark transition-colors"
             >
               <Home size={18} />
               Return to Website
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="bg-white brutal-border brutal-shadow p-12 rounded-[40px] max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-red-100 rounded-full mx-auto mb-8 flex items-center justify-center text-red-500 border-4 border-bento-dark">
-            <Trash2 size={40} />
-          </div>
-          <h1 className="text-4xl font-display mb-4 uppercase text-red-500 tracking-tighter">Access Denied</h1>
-          <p className="font-bold opacity-60 mb-8 italic">You are not authorized to edit this portfolio.</p>
-          <div className="space-y-4">
-            <button 
-              onClick={logout}
-              className="w-full flex items-center justify-center gap-4 py-4 bg-bento-dark text-white font-display font-black text-xl rounded-2xl border-4 border-white shadow-[6px_6px_0px_0px_rgba(45,48,71,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
-            >
-              <LogOut /> LOG OUT
-            </button>
-            <Link 
-              to="/" 
-              className="block py-4 font-display font-black text-xl text-bento-dark border-4 border-bento-dark rounded-2xl hover:bg-slate-100 transition-all"
-            >
-              ← BACK TO HOME
             </Link>
           </div>
         </div>
@@ -190,9 +132,9 @@ export default function AdminPanel() {
             <Home className="w-5 h-5" />
             <span className="hidden sm:inline">HOME</span>
           </Link>
-          <span className="hidden md:block font-sans font-bold opacity-60">{user.email}</span>
+          <span className="hidden md:block font-sans font-bold opacity-60">zzkacytm@gmail.com</span>
           <button 
-            onClick={logout}
+            onClick={handleLogout}
             className="p-2 bg-slate-100 rounded-lg hover:bg-red-100 transition-colors"
             title="Log Out"
           >
