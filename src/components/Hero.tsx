@@ -63,29 +63,38 @@ export default function Hero({ profile }: HeroProps) {
             </div>
           </motion.div>
 
-          {/* Contact Quick Link Card */}
+          {/* Banner Display Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="md:col-span-4 md:row-span-3 bg-bento-yellow brutal-border rounded-[40px] brutal-shadow p-8 md:p-10 relative group"
+            className="md:col-span-4 md:row-span-3 brutal-border rounded-[40px] brutal-shadow relative group overflow-hidden bg-bento-yellow"
           >
-            <h3 className="text-2xl md:text-3xl font-black mb-8 uppercase italic tracking-tighter">Get in Touch</h3>
-            <div className="space-y-4 relative z-10">
-              <div className="bg-white p-4 border-2 border-bento-dark rounded-2xl font-bold flex justify-between items-center group-hover:bg-white transition-colors">
-                <span className="text-sm opacity-70">Email</span>
-                <span className="text-bento-rose truncate ml-4">{profile?.contactEmail || "hi@portfolio.com"}</span>
+            {profile?.bannerUrl ? (
+              <>
+                <img 
+                  src={profile.bannerUrl}
+                  alt="My Brand Banner"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 animate-fade-in"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute top-6 left-6 bg-white text-bento-dark border-2 border-bento-dark px-4 py-2 text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(45,48,71,1)] z-10">
+                  Featured Gallery
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full p-8 md:p-10 flex flex-col justify-between bg-bento-yellow">
+                <div>
+                  <h3 className="text-2xl md:text-3xl font-black mb-4 uppercase italic tracking-tighter text-bento-dark">Brand Banner</h3>
+                  <p className="font-bold text-bento-dark/80 text-sm leading-snug">
+                    Set a "Banner Image URL" in the administrator panel to showcase custom branding or your favorite artwork here!
+                  </p>
+                </div>
+                <div className="w-full h-24 bg-white/60 border-2 border-dashed border-bento-dark/40 rounded-2xl flex items-center justify-center text-xs font-black text-bento-dark/50 italic">
+                  No banner image configured
+                </div>
               </div>
-              <a 
-                href="#contact"
-                className="block w-full bg-bento-dark text-white p-5 border-2 border-bento-dark rounded-2xl font-black text-center hover:bg-bento-rose transition-all hover:scale-105 active:scale-95"
-              >
-                LET'S TALK!
-              </a>
-            </div>
-            <div className="absolute bottom-6 right-8 text-6xl opacity-10 group-hover:opacity-30 transition-opacity">
-              🚀
-            </div>
+            )}
           </motion.div>
 
           {/* Quote / Social Banner Card */}
