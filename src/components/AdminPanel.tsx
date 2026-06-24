@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { db } from "../config/firebase";
+import { db, auth } from "../config/firebase";
 import { collection, doc, setDoc, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { Profile, PortfolioItem, Skill, Certificate, Experience, OperationType } from "../types";
 import { handleFirestoreError } from "../utils/error-handler";
-import { LogIn, LogOut, Plus, Trash2, Save, ChevronRight, Image as ImageIcon, Link as LinkIcon, PlusCircle, Trash, RefreshCcw, Home, MapPin, GraduationCap, Briefcase } from "lucide-react";
+import { LogIn, LogOut, Plus, Trash2, Save, ChevronRight, Image as ImageIcon, Link as LinkIcon, PlusCircle, Trash, RefreshCcw, Home, MapPin, GraduationCap, Briefcase, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 
@@ -13,15 +14,25 @@ export default function AdminPanel() {
 
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedAdmin = localStorage.getItem("is_portfolio_admin") === "true";
-    setIsAdminStatus(savedAdmin);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        if (user.email === "zzkacytm@gmail.com") {
+          setIsAdminStatus(true);
+        } else {
+          setIsAdminStatus(false);
+          setLoginError(`账号 ${user.email} 不是管理员。`);
+          signOut(auth);
+        }
+      } else {
+        setIsAdminStatus(false);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const clearGlobalError = () => setGlobalError(null);
@@ -30,25 +41,38 @@ export default function AdminPanel() {
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
-  const handleManualLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     setLoginError(null);
-
-    // 严格匹配您提供的账号密码
-    if (email === "zzkacytm@gmail.com" && password === "zzk980824") {
-      setIsAdminStatus(true);
-      localStorage.setItem("is_portfolio_admin", "true");
-      setIsLoggingIn(false);
-    } else {
-      setLoginError("账号或密码不正确。");
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      if (user.email === "zzkacytm@gmail.com") {
+        setIsAdminStatus(true);
+      } else {
+        setLoginError(`账号 ${user.email} 不是管理员。`);
+        await signOut(auth);
+        setIsAdminStatus(false);
+      }
+    } catch (error: any) {
+      console.error("Google login error:", error);
+      setLoginError(error.message || "登录失败，请重试。");
+    } finally {
       setIsLoggingIn(false);
     }
   };
 
-  const handleLogout = () => {
-    setIsAdminStatus(false);
-    localStorage.removeItem("is_portfolio_admin");
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsAdminStatus(false);
+    } catch (error: any) {
+      console.error("Sign out error:", error);
+    }
   };
 
   if (isAdminStatus === null) {
@@ -66,10 +90,11 @@ export default function AdminPanel() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bento-cyan/10 p-6">
         <div className="bg-white brutal-border brutal-shadow p-12 rounded-[40px] max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-bento-rose rounded-full mx-auto mb-8 flex items-center justify-center text-white border-4 border-bento-dark shadow-[4px_4px_0px_0px_rgba(45,48,71,1)]">
-            <LogIn size={40} />
+          <div className="w-20 h-20 bg-bento-cyan rounded-full mx-auto mb-8 flex items-center justify-center text-bento-dark border-4 border-bento-dark shadow-[4px_4px_0px_0px_rgba(45,48,71,1)]">
+            <ShieldCheck size={40} />
           </div>
-          <h1 className="text-4xl font-display mb-8 uppercase italic tracking-tighter">Admin Access</h1>
+          <h1 className="text-4xl font-display mb-2 uppercase italic tracking-tighter">Admin Access</h1>
+          <p className="text-sm font-sans font-bold opacity-60 uppercase mb-8">管理员身份验证</p>
           
           {loginError && (
             <div className="mb-6 p-4 bg-red-100 border-4 border-red-500 text-red-600 font-sans font-bold text-xs uppercase rounded-xl text-left">
@@ -77,43 +102,32 @@ export default function AdminPanel() {
             </div>
           )}
 
-          <form onSubmit={handleManualLogin} className="space-y-6 text-left">
-            <div>
-              <label className="block font-display font-black text-sm uppercase mb-2">Account (Email)</label>
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full bg-slate-50 border-4 border-bento-dark p-4 rounded-2xl font-bold focus:outline-none focus:ring-4 ring-bento-cyan/20 transition-all"
-                placeholder="admin@example.com"
-              />
-            </div>
-            <div>
-              <label className="block font-display font-black text-sm uppercase mb-2">Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full bg-slate-50 border-4 border-bento-dark p-4 rounded-2xl font-bold focus:outline-none focus:ring-4 ring-bento-cyan/20 transition-all"
-                placeholder="••••••••"
-              />
+          <div className="space-y-6 text-left">
+            <div className="bg-slate-50 border-4 border-bento-dark p-6 rounded-2xl">
+              <span className="block font-display font-black text-xs text-bento-rose uppercase tracking-wider mb-1">
+                Linked Administrator Account
+              </span>
+              <p className="font-display font-bold text-lg text-bento-dark break-all">
+                zzkacytm@gmail.com
+              </p>
+              <p className="text-xs font-medium text-slate-500 mt-2 italic">
+                请确保您登录的谷歌账号与上方邮箱一致。
+              </p>
             </div>
             
             <button 
-              type="submit"
+              onClick={handleGoogleLogin}
               disabled={isLoggingIn}
-              className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all group ${
-                isLoggingIn ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-bento-cyan text-bento-dark hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
+              className={`w-full flex items-center justify-center gap-4 py-5 font-display font-black text-xl rounded-2xl border-4 border-bento-dark shadow-[8px_8px_0px_0px_rgba(45,48,71,1)] transition-all group cursor-pointer ${
+                isLoggingIn ? 'bg-slate-300 cursor-not-allowed opacity-50 shadow-none' : 'bg-bento-yellow text-bento-dark hover:translate-x-1 hover:translate-y-1 hover:shadow-none'
               }`}
             >
-              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-transparent group-hover:border-bento-dark transition-all">
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-bento-dark transition-all">
                  {isLoggingIn ? <RefreshCcw className="animate-spin text-bento-dark" /> : <LogIn className="text-bento-dark" />}
               </div>
-              {isLoggingIn ? "LOGGING IN..." : "SIGN IN"}
+              {isLoggingIn ? "LOGGING IN..." : "使用 GOOGLE 账号登录"}
             </button>
-          </form> 
+          </div> 
 
           <div className="pt-6 mt-8 border-t-4 border-bento-dark/10">
             <Link 
